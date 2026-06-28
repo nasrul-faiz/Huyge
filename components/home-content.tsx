@@ -8,6 +8,7 @@ import { getDOByCode, markDOComplete, type DeliveryOrder } from "@/lib/do-store"
 import { getRefillData, REFILL_DATA_STORAGE_KEY, saveRefillData, type RefillDataMap } from "@/lib/refill-store"
 import { saveRefillHistory, type RefillHistoryItem } from "@/lib/refill-history-store"
 import { Button } from "@/components/ui/button"
+import { applyRteRefillCycleWithManualStockOut, getRteSuggestedStockOutQuantity, isRteProduct } from "@/lib/color-expired"
 
 type RefillRowValues = {
   stockIn: number
@@ -140,10 +141,13 @@ export function HomeContent() {
         if (machineId !== selectedMachine) return [machineId, machineItems]
 
         historyItems = machineItems.map((item) => {
+          const suggestedStockOut = isRteProduct(item.productType)
+            ? getRteSuggestedStockOutQuantity(item)
+            : item.stockOut
           const row = tableValues[item.slot] ?? {
             stockIn: item.stockIn,
             overflow: item.overflow,
-            stockOut: item.stockOut,
+            stockOut: suggestedStockOut,
           }
 
           return {
@@ -160,10 +164,25 @@ export function HomeContent() {
         })
 
         const updatedItems = machineItems.map((item) => {
+          const suggestedStockOut = isRteProduct(item.productType)
+            ? getRteSuggestedStockOutQuantity(item)
+            : item.stockOut
           const row = tableValues[item.slot] ?? {
             stockIn: item.stockIn,
             overflow: item.overflow,
-            stockOut: item.stockOut,
+            stockOut: suggestedStockOut,
+          }
+
+          if (isRteProduct(item.productType)) {
+            const rteResult = applyRteRefillCycleWithManualStockOut(item, row)
+            return {
+              ...item,
+              stockIn: 0,
+              overflow: 0,
+              stockOut: 0,
+              currentInventory: rteResult.nextInventory,
+              rteBatches: rteResult.rteBatches,
+            }
           }
 
           const netIn = Math.max(0, row.stockIn - row.overflow)

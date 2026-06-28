@@ -5,6 +5,7 @@ import { CheckIcon, ChevronRightIcon, ClipboardCopyIcon, ClipboardListIcon, EyeI
 import { ImageLightbox } from "@/components/image-lightbox"
 import { getAllDOs, DELIVERY_ORDERS_STORAGE_KEY, DELIVERY_ORDERS_UPDATED_EVENT, type DeliveryOrder } from "@/lib/do-store"
 import type { ProductType } from "@/lib/product-store"
+import { getRteSuggestedStockOutQuantity, isRteProduct, type RteBatch } from "@/lib/color-expired"
 import {
   Table,
   TableBody,
@@ -28,7 +29,7 @@ export interface RefillItem {
   productName: string
   image: string
   productType?: ProductType | ""
-  rteBatches?: Array<{ color: string; quantity: number }>
+  rteBatches?: RteBatch[]
   stockIn: number
   overflow: number
   stockOut: number
@@ -199,7 +200,9 @@ export function RefillTable({ machineId, items, prefilledStockIn, isEditable = t
           const overflow = prefilledStockIn?.[item.slot] != null
             ? Math.max(0, stockIn - available)
             : item.overflow
-          const stockOut = item.stockOut
+          const stockOut = isRteProduct(item.productType)
+            ? getRteSuggestedStockOutQuantity(item)
+            : item.stockOut
           return [item.slot, { stockIn, overflow, stockOut }]
         })
       )
@@ -282,7 +285,9 @@ export function RefillTable({ machineId, items, prefilledStockIn, isEditable = t
             const row = values[item.slot] ?? {
               stockIn: baseStockIn,
               overflow: baseOverflow,
-              stockOut: item.stockOut,
+              stockOut: isRteProduct(item.productType)
+                ? getRteSuggestedStockOutQuantity(item)
+                : item.stockOut,
             }
             return (
               <TableRow key={item.slot} className="h-10">

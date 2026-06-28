@@ -5,8 +5,10 @@ import { dbQuery, getDbPool } from "@/lib/db"
 export const runtime = "nodejs"
 
 interface RteBatch {
-  color: string
+  color?: string
   quantity: number
+  stockedAt?: string
+  expiresAt?: string
 }
 
 let refillSchemaReadyPromise: Promise<void> | null = null
@@ -40,9 +42,22 @@ function normalizeRteBatches(raw: unknown): RteBatch[] {
         "quantity" in item && typeof item.quantity === "number"
           ? Math.max(0, Math.floor(item.quantity))
           : 0
+      const stockedAt =
+        "stockedAt" in item && typeof item.stockedAt === "string" && item.stockedAt.trim()
+          ? item.stockedAt.trim()
+          : undefined
+      const expiresAt =
+        "expiresAt" in item && typeof item.expiresAt === "string" && item.expiresAt.trim()
+          ? item.expiresAt.trim()
+          : undefined
 
-      if (!color || quantity <= 0) return null
-      return { color, quantity }
+      if (quantity <= 0) return null
+      return {
+        color: color || undefined,
+        quantity,
+        stockedAt,
+        expiresAt,
+      }
     })
     .filter((item): item is RteBatch => item !== null)
 }

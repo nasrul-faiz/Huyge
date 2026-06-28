@@ -82,7 +82,10 @@ export function OrderingContent() {
 
   function handleQtyChange(slot: string, raw: string) {
     const num = raw === "" ? 0 : Math.max(0, parseInt(raw) || 0)
-    setQuantities((prev) => ({ ...prev, [slot]: num }))
+    const item = sortedItems.find((entry) => entry.slot === slot)
+    const maxQty = Math.max(0, item?.maxCapacity ?? 0)
+    const capped = Math.min(num, maxQty)
+    setQuantities((prev) => ({ ...prev, [slot]: capped }))
   }
 
   function getMediumAutoQty(item: { currentInventory: number; maxCapacity: number }) {
@@ -245,6 +248,7 @@ export function OrderingContent() {
                         <input
                           type="number"
                           min={0}
+                          max={item.maxCapacity}
                           value={qty === 0 ? "" : qty}
                           placeholder="0"
                           onChange={(e) =>
