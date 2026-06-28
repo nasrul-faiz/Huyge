@@ -30,24 +30,45 @@ export function generateDOCode(): string {
   return `DO-${date}-${seq}`
 }
 
-export async function saveDO(order: DeliveryOrder): Promise<void> {
-  try {
-    const response = await fetch("/api/delivery-orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        code: order.code,
-        machine_id: order.machineId,
-        machine_label: order.machineLabel,
-        date: order.date,
-        items: order.items,
-      }),
-    })
+export async function saveDO(order: DeliveryOrder): Promise<DeliveryOrder> {
+  const response = await fetch("/api/delivery-orders", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      code: order.code,
+      machine_id: order.machineId,
+      machine_label: order.machineLabel,
+      date: order.date,
+      items: order.items,
+    }),
+  })
 
-    if (!response.ok) throw new Error("Failed to save delivery order")
-    emitDeliveryOrdersUpdated()
-  } catch (error) {
-    console.error("Error saving delivery order:", error)
+  if (!response.ok) {
+    let message = "Failed to save delivery order"
+    try {
+      const data = await response.json()
+      if (data?.error) message = data.error
+    } catch {
+      // Keep fallback message when response body is not JSON.
+    }
+    throw new Error(message)
+  }
+
+  const created = await response.json()
+  emitDeliveryOrdersUpdated()
+  return {
+    code: created.code,
+    machineId: created.machine_id,
+    machineLabel: created.machine_label,
+    date: created.date,
+    status: created.status,
+    items: (created.items || []).map((i: any) => ({
+      slot: i.slot,
+      productCode: i.productCode,
+      productName: i.productName,
+      image: i.image ?? "",
+      qty: i.qty,
+    })),
   }
 }
 

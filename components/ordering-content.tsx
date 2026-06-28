@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import {
+  WandSparklesIcon,
   ShoppingCartIcon,
   PrinterIcon,
   CheckCircleIcon,
@@ -36,6 +37,8 @@ export function OrderingContent() {
   const [refillData, setRefillData] = React.useState<RefillDataMap>({})
   const [quantities, setQuantities] = React.useState<Record<string, number>>({})
   const [submittedDO, setSubmittedDO] = React.useState<DeliveryOrder | null>(null)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [submitError, setSubmitError] = React.useState("")
 
   React.useEffect(() => {
     Promise.all([getMachines(), getRefillData()]).then(([m, r]) => {
@@ -74,11 +77,32 @@ export function OrderingContent() {
     setSelectedMachine(value)
     setQuantities({})
     setSubmittedDO(null)
+    setSubmitError("")
   }
 
   function handleQtyChange(slot: string, raw: string) {
     const num = raw === "" ? 0 : Math.max(0, parseInt(raw) || 0)
     setQuantities((prev) => ({ ...prev, [slot]: num }))
+  }
+
+  function getMediumAutoQty(item: { currentInventory: number; maxCapacity: number }) {
+    const safeMax = Math.max(0, item.maxCapacity)
+    const safeCurrent = Math.max(0, item.currentInventory)
+    if (safeMax <= 0 || safeCurrent >= safeMax) return 0
+
+    const targetInventory = Math.ceil(safeMax * 0.6)
+    const suggested = Math.max(0, targetInventory - safeCurrent)
+    const availableSpace = Math.max(0, safeMax - safeCurrent)
+    return Math.min(suggested, availableSpace)
+  }
+
+  function handleAutoOrderingMedium() {
+    const next: Record<string, number> = {}
+    for (const item of sortedItems) {
+      next[item.slot] = getMediumAutoQty(item)
+    }
+    setQuantities(next)
+    setSubmitError("")
   }
 
   const orderedItems = sortedItems
@@ -87,7 +111,12 @@ export function OrderingContent() {
 
   const totalQty = orderedItems.reduce((a, b) => a + b.qty, 0)
 
-  function handleSubmit() {
+  async function handleSubmit() {
+    if (isSubmitting || !selectedMachine || orderedItems.length === 0) return
+
+    setIsSubmitting(true)
+    setSubmitError("")
+
     const code = generateDOCode()
     const now = new Date()
     const order: DeliveryOrder = {
@@ -103,21 +132,28 @@ export function OrderingContent() {
       })),
       status: "pending",
     }
-    saveDO({ ...order, items: orderedItems.map((item) => ({
-      slot: item.slot,
-      productCode: item.productCode,
-      productName: item.productName,
-      image: item.image ?? "",
-      qty: item.qty,
-    })) }).then(() => {
-      setSubmittedDO(order)
-    })
+
+    try {
+      const saved = await saveDO({ ...order, items: orderedItems.map((item) => ({
+        slot: item.slot,
+        productCode: item.productCode,
+        productName: item.productName,
+        image: item.image ?? "",
+        qty: item.qty,
+      })) })
+      setSubmittedDO(saved)
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Failed to generate DO")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   function handleNewOrder() {
     setSubmittedDO(null)
     setSelectedMachine("")
     setQuantities({})
+    setSubmitError("")
   }
 
   if (submittedDO) {
@@ -135,9 +171,21 @@ export function OrderingContent() {
               <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground">
                 {selectedMachine} — Order Sheet
               </span>
-              <span className="text-[11px] text-muted-foreground">
-                {items.length} products
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground">
+                  {items.length} products
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAutoOrderingMedium}
+                  className="h-7 gap-1.5 px-2.5 text-[11px]"
+                >
+                  <WandSparklesIcon className="size-3.5" />
+                  Auto (Sedang)
+                </Button>
+              </div>
             </div>
 
             <Table className="text-xs">
@@ -225,15 +273,20 @@ export function OrderingContent() {
                 units total
               </span>
             </div>
-            <Button
-              size="sm"
-              disabled={totalQty === 0}
-              onClick={handleSubmit}
-              className="gap-1.5"
-            >
-              <ShoppingCartIcon className="size-3.5" />
-              Generate DO
-            </Button>
+            <div className="flex flex-col items-end gap-1.5">
+              <Button
+                size="sm"
+                disabled={totalQty === 0 || isSubmitting}
+                onClick={handleSubmit}
+                className="gap-1.5"
+              >
+                <ShoppingCartIcon className="size-3.5" />
+                {isSubmitting ? "Generating..." : "Generate DO"}
+              </Button>
+              {submitError && (
+                <p className="text-xs text-red-500">{submitError}</p>
+              )}
+            </div>
           </div>
         </>
       )}

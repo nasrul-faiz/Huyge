@@ -110,10 +110,18 @@ export async function POST(request: NextRequest) {
   const client = await pool.connect()
   try {
     const { code, machine_id, machine_label, date, items }: DeliveryOrder & { items: DOItem[] } = await request.json()
+    const normalizedCode = code?.trim().toUpperCase()
 
-    if (!code || !machine_id || !machine_label || !date || !items) {
+    if (!normalizedCode || !machine_id || !machine_label || !date || !items) {
       return NextResponse.json(
         { error: "code, machine_id, machine_label, date, and items are required" },
+        { status: 400 }
+      )
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { error: "items must contain at least one item" },
         { status: 400 }
       )
     }
@@ -122,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     const doResult = await client.query<DeliveryOrder & { id: number }>(
       "INSERT INTO delivery_orders (code, machine_id, machine_label, date, status) VALUES ($1, $2, $3, $4, 'pending') RETURNING id, code, machine_id, machine_label, date, status",
-      [code, machine_id, machine_label, date]
+      [normalizedCode, machine_id, machine_label, date]
     )
 
     const orderId = doResult.rows[0].id
