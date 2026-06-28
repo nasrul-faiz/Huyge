@@ -88,7 +88,7 @@ function getDefaultExpiryFromNow(date = new Date()) {
 export function normalizeRteBatches(raw: unknown): RteBatch[] {
   if (!Array.isArray(raw)) return []
 
-  return raw
+  const normalized = raw
     .map((item) => {
       if (!item || typeof item !== "object") return null
       const color = "color" in item && typeof item.color === "string" ? normalizeHexColor(item.color) : ""
@@ -107,13 +107,15 @@ export function normalizeRteBatches(raw: unknown): RteBatch[] {
         expiresAt: expiresAt ?? getDefaultExpiryFromNow(),
       }
     })
-    .filter((item): item is RteBatch => item !== null)
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+
+  return normalized
 }
 
 function getFrontExpiredBatchQty(batches: RteBatch[], expiredColor: string) {
   let total = 0
   for (const batch of batches) {
-    if (normalizeHexColor(batch.color) !== expiredColor) {
+    if (!batch.color || normalizeHexColor(batch.color) !== expiredColor) {
       break
     }
     total += batch.quantity
@@ -147,7 +149,7 @@ function appendToBack(batches: RteBatch[], color: string, quantity: number): Rte
   const next = batches.map((batch) => ({ ...batch }))
   const last = next[next.length - 1]
 
-  if (last && normalizeHexColor(last.color) === normalizedColor) {
+  if (last?.color && normalizeHexColor(last.color) === normalizedColor) {
     last.quantity += quantity
     return next
   }

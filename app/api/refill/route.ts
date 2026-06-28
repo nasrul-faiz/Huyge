@@ -34,7 +34,7 @@ async function ensureRefillSchema() {
 function normalizeRteBatches(raw: unknown): RteBatch[] {
   if (!Array.isArray(raw)) return []
 
-  return raw
+  const normalized = raw
     .map((item) => {
       if (!item || typeof item !== "object") return null
       const color = "color" in item && typeof item.color === "string" ? item.color.trim().toUpperCase() : ""
@@ -59,7 +59,9 @@ function normalizeRteBatches(raw: unknown): RteBatch[] {
         expiresAt,
       }
     })
-    .filter((item): item is RteBatch => item !== null)
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+
+  return normalized
 }
 
 interface RefillItem {
