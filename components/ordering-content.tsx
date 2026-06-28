@@ -12,7 +12,6 @@ import {
 import { FieldSelect } from "@/components/field-select"
 import { getMachines } from "@/lib/machine-store"
 import { getRefillData, REFILL_DATA_STORAGE_KEY, type RefillDataMap } from "@/lib/refill-store"
-import { getAutoStockOutQuantity, getTodayExpiredInfo, isRteProduct } from "@/lib/color-expired"
 import {
   Table,
   TableBody,
@@ -32,7 +31,6 @@ const inputCls =
   "w-16 rounded-md border bg-background px-1.5 py-1 text-center text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
 
 export function OrderingContent() {
-  const todayExpired = React.useMemo(() => getTodayExpiredInfo(), [])
   const [selectedMachine, setSelectedMachine] = React.useState("")
   const [machines, setMachines] = React.useState<Array<{ value: string; label: string }>>([])
   const [refillData, setRefillData] = React.useState<RefillDataMap>({})
@@ -72,17 +70,6 @@ export function OrderingContent() {
   const machineLabel =
     machines.find((m) => m.value === selectedMachine)?.label ?? selectedMachine
 
-  const orderLimitBySlot = React.useMemo(
-    () =>
-      Object.fromEntries(
-        sortedItems.map((item) => [
-          item.slot,
-          isRteProduct(item.productType) ? getAutoStockOutQuantity(item) : null,
-        ])
-      ),
-    [sortedItems]
-  )
-
   function handleMachineChange(value: string) {
     setSelectedMachine(value)
     setQuantities({})
@@ -91,9 +78,7 @@ export function OrderingContent() {
 
   function handleQtyChange(slot: string, raw: string) {
     const num = raw === "" ? 0 : Math.max(0, parseInt(raw) || 0)
-    const limit = orderLimitBySlot[slot]
-    const nextQty = typeof limit === "number" ? Math.min(num, limit) : num
-    setQuantities((prev) => ({ ...prev, [slot]: nextQty }))
+    setQuantities((prev) => ({ ...prev, [slot]: num }))
   }
 
   const orderedItems = sortedItems
@@ -145,22 +130,6 @@ export function OrderingContent() {
 
       {selectedMachine && items.length > 0 && (
         <>
-          <div className="flex items-center gap-3 rounded-xl border border-pink-200 bg-pink-50/70 px-4 py-3 text-sm dark:border-pink-900/50 dark:bg-pink-950/20">
-            <span
-              className="inline-flex h-4 w-4 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-              style={{ backgroundColor: todayExpired.color }}
-              aria-hidden="true"
-            />
-            <div className="min-w-0">
-              <p className="font-medium text-pink-800 dark:text-pink-300">
-                Today Out Colour: {todayExpired.day} · {todayExpired.label}
-              </p>
-              <p className="text-xs text-pink-700/80 dark:text-pink-300/80">
-                Untuk item RTE, order qty ikut batch expired color di bahagian depan (FIFO) hari ini.
-              </p>
-            </div>
-          </div>
-
           <div className="rounded-xl border bg-card overflow-hidden text-xs">
             <div className="px-4 py-2 border-b flex items-center justify-between bg-muted/40">
               <span className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground">
@@ -190,9 +159,6 @@ export function OrderingContent() {
                 {sortedItems.map((item) => {
                   const qty = quantities[item.slot] ?? 0
                   const isLow = item.currentInventory < item.maxCapacity * 0.3
-                  const rteOrderLimit = isRteProduct(item.productType)
-                    ? getAutoStockOutQuantity(item)
-                    : null
                   return (
                     <TableRow key={item.slot} className="h-10">
                       <TableCell className="text-center py-1.5">
@@ -216,11 +182,6 @@ export function OrderingContent() {
                         <p className="truncate text-[10px] text-muted-foreground">
                           {item.productCode}
                         </p>
-                        {typeof rteOrderLimit === "number" && (
-                          <p className="truncate text-[10px] text-pink-600 dark:text-pink-400">
-                            RTE today out: {rteOrderLimit}
-                          </p>
-                        )}
                       </TableCell>
                       <TableCell className="text-center py-1.5">
                         <span
@@ -236,13 +197,12 @@ export function OrderingContent() {
                         <input
                           type="number"
                           min={0}
-                          max={typeof rteOrderLimit === "number" ? rteOrderLimit : undefined}
                           value={qty === 0 ? "" : qty}
-                          placeholder={typeof rteOrderLimit === "number" ? String(rteOrderLimit) : "0"}
+                          placeholder="0"
                           onChange={(e) =>
                             handleQtyChange(item.slot, e.target.value)
                           }
-                          className={`${inputCls} ${typeof rteOrderLimit === "number" ? "border-pink-300 bg-pink-50 dark:border-pink-900/60 dark:bg-pink-950/30" : ""}`}
+                          className={inputCls}
                         />
                       </TableCell>
                     </TableRow>

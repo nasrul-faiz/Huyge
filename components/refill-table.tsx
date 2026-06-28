@@ -5,7 +5,6 @@ import { CheckIcon, ClipboardCopyIcon, ClipboardListIcon } from "lucide-react"
 import { ImageLightbox } from "@/components/image-lightbox"
 import { getAllDOs, DELIVERY_ORDERS_STORAGE_KEY, DELIVERY_ORDERS_UPDATED_EVENT, type DeliveryOrder } from "@/lib/do-store"
 import type { ProductType } from "@/lib/product-store"
-import { getAutoStockOutQuantity, isRteProduct } from "@/lib/color-expired"
 import {
   Table,
   TableBody,
@@ -186,9 +185,7 @@ export function RefillTable({ machineId, items, prefilledStockIn, isEditable = t
           const overflow = prefilledStockIn?.[item.slot] != null
             ? Math.max(0, stockIn - available)
             : item.overflow
-          const stockOut = isRteProduct(item.productType)
-            ? getAutoStockOutQuantity(item)
-            : item.stockOut
+          const stockOut = item.stockOut
           return [item.slot, { stockIn, overflow, stockOut }]
         })
       )
@@ -271,11 +268,8 @@ export function RefillTable({ machineId, items, prefilledStockIn, isEditable = t
             const row = values[item.slot] ?? {
               stockIn: baseStockIn,
               overflow: baseOverflow,
-              stockOut: isRteProduct(item.productType)
-                ? getAutoStockOutQuantity(item)
-                : item.stockOut,
+              stockOut: item.stockOut,
             }
-            const isAutoStockOut = isRteProduct(item.productType)
             return (
               <TableRow key={item.slot} className="h-10">
                 {/* Slot */}
@@ -314,11 +308,11 @@ export function RefillTable({ machineId, items, prefilledStockIn, isEditable = t
                   <input
                     type="number"
                     min={0}
-                    disabled={!isEditable || isAutoStockOut}
+                    disabled={!isEditable}
                     value={row.stockOut === 0 ? "" : row.stockOut}
                     placeholder="0"
                     onChange={(e) => handleChange(item.slot, "stockOut", e.target.value)}
-                    className={`${inputCls} ${readonlyInputCls} ${isAutoStockOut ? "border-pink-300 bg-pink-50 text-pink-700 dark:border-pink-900/60 dark:bg-pink-950/30 dark:text-pink-300" : ""}`}
+                    className={`${inputCls} ${readonlyInputCls}`}
                   />
                 </TableCell>
 
