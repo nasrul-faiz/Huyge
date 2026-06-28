@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CheckIcon, ClipboardCopyIcon, ClipboardListIcon } from "lucide-react"
+import { CheckIcon, ChevronRightIcon, ClipboardCopyIcon, ClipboardListIcon, EyeIcon, SearchIcon, XIcon } from "lucide-react"
 import { ImageLightbox } from "@/components/image-lightbox"
 import { getAllDOs, DELIVERY_ORDERS_STORAGE_KEY, DELIVERY_ORDERS_UPDATED_EVENT, type DeliveryOrder } from "@/lib/do-store"
 import type { ProductType } from "@/lib/product-store"
@@ -53,6 +53,20 @@ interface RefillTableProps {
 
 const inputCls =
   "w-16 rounded-md border bg-background px-1.5 py-1 text-center text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString("en-MY", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+function formatTime(dateStr: string) {
+  const d = new Date(dateStr)
+  return d.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })
+}
 
 export function RefillTable({ machineId, items, prefilledStockIn, isEditable = true, onValuesChange, showDoButton = true }: RefillTableProps) {
   const [allOrders, setAllOrders] = React.useState<DeliveryOrder[]>([])
@@ -354,102 +368,175 @@ export function RefillTable({ machineId, items, prefilledStockIn, isEditable = t
       </div>
 
       <Dialog open={showDoButton && isViewDOpen} onOpenChange={setIsViewDOOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>View DO - {machineId}</DialogTitle>
-            <DialogDescription>
-              New DO from Ordering only ({filteredOrders.length}). Previous DO boleh tengok di halaman View DO.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent
+          showCloseButton
+          className="!top-0 !left-0 !h-screen !w-screen !max-w-none !translate-x-0 !translate-y-0 rounded-none p-0"
+        >
+          <div className="flex h-full flex-col bg-card">
+            <DialogHeader className="border-b bg-background/95 px-4 py-3 pr-14 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+              <div className="flex min-w-0 items-center gap-1.5 text-sm">
+                <DialogTitle className="sr-only">View DO - {machineId}</DialogTitle>
+                <DialogDescription className="sr-only">
+                  New DO from Ordering only ({filteredOrders.length}). Previous DO boleh tengok di halaman View DO.
+                </DialogDescription>
+                <span className="text-muted-foreground shrink-0">Refill</span>
+                <ChevronRightIcon className="size-3.5 text-muted-foreground/50 shrink-0" />
+                <span className="font-semibold truncate">View DO</span>
+                <ChevronRightIcon className="size-3.5 text-muted-foreground/50 shrink-0" />
+                <span className="text-muted-foreground truncate">{machineId}</span>
+              </div>
+            </DialogHeader>
 
-          <div className="rounded-lg border bg-muted/20 px-3 py-3">
-            <label className="mb-1.5 block text-[11px] font-semibold tracking-wide text-muted-foreground">
-              Paste DO code to filter
-            </label>
-            <input
-              type="text"
-              value={doCodeFilter}
-              onChange={(event) => setDoCodeFilter(event.target.value.toUpperCase())}
-              placeholder="e.g. DO-260623-001"
-              className="w-full rounded-md border bg-background px-3 py-1.5 text-xs font-mono tracking-wider focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-          </div>
+            <div className="min-h-0 flex-1 overflow-auto p-6">
+              <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+                <div className="overflow-hidden rounded-xl border bg-card">
+                  <div className="border-b bg-muted/40 px-4 py-3 md:px-5">
+                    <p className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground">
+                      Search Delivery Orders
+                    </p>
+                  </div>
+                  <div className="px-4 py-4 md:px-5">
+                    <div className="relative">
+                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                      <input
+                        type="text"
+                        value={doCodeFilter}
+                        onChange={(event) => setDoCodeFilter(event.target.value.toUpperCase())}
+                        placeholder="Search by DO code - e.g. DO-260623-001"
+                        className="w-full rounded-lg border bg-background pl-9 pr-9 py-2 text-sm font-mono tracking-wider focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                      {doCodeFilter && (
+                        <button
+                          type="button"
+                          onClick={() => setDoCodeFilter("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          <XIcon className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-          <div className="space-y-3 rounded-lg border bg-muted/20 px-3 py-3">
-            <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
-              New DO ({filteredOrders.length})
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {filteredOrders.map((order) => (
-                <button
-                  key={order.code}
-                  type="button"
-                  onClick={() => {
-                    setSelectedDoCode(order.code)
-                    void handleCopyCode(order.code)
-                  }}
-                  className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-left text-xs shadow-sm transition hover:bg-muted ${selectedDoCode === order.code ? "bg-emerald-50 border-emerald-300 dark:bg-emerald-950/30" : "bg-background"}`}
-                  title="Click to copy DO code"
-                >
-                  <span className="font-semibold text-muted-foreground">DO</span>
-                  <span className="font-mono font-bold tracking-wider">{order.code}</span>
-                  {copiedCode === order.code ? (
-                    <CheckIcon className="size-3.5 text-emerald-600" />
-                  ) : (
-                    <ClipboardCopyIcon className="size-3.5 text-muted-foreground" />
+                <div className="overflow-hidden rounded-xl border bg-card">
+                  <Table className="text-xs">
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        {["Code", "Time Refill", "Date", "Action"].map((h) => (
+                          <TableHead
+                            key={h}
+                            className="text-center text-[11px] font-semibold tracking-wide py-2"
+                          >
+                            {h}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredOrders.map((order) => (
+                        <TableRow key={order.code} className="h-10">
+                          <TableCell className="text-center py-1.5">
+                            <span className="font-mono font-bold tracking-wider text-xs">
+                              {order.code}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center py-1.5 tabular-nums">
+                            {formatTime(order.date)}
+                          </TableCell>
+                          <TableCell className="text-center py-1.5">
+                            {formatDate(order.date)}
+                          </TableCell>
+                          <TableCell className="text-center py-1.5">
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDoCode(order.code)}
+                                className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-medium transition hover:bg-muted ${selectedDoCode === order.code ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300" : "bg-background"}`}
+                              >
+                                <EyeIcon className="size-3.5" />
+                                View
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void handleCopyCode(order.code)}
+                                className="rounded-md border bg-background p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                                aria-label="Copy DO code"
+                                title="Copy DO code"
+                              >
+                                {copiedCode === order.code ? (
+                                  <CheckIcon className="size-3.5 text-emerald-600" />
+                                ) : (
+                                  <ClipboardCopyIcon className="size-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {filteredOrders.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                            No new DO found for this machine.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                  <div className="border-t bg-muted/20 px-4 py-2 text-xs text-muted-foreground md:px-5">
+                    {filteredOrders.length} order{filteredOrders.length !== 1 && "s"} found
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-xl border bg-card">
+                  <div className="border-b bg-muted/40 px-4 py-2 md:px-5">
+                    <p className="text-[11px] font-semibold tracking-widest uppercase text-muted-foreground">
+                      {selectedOrder ? `DO Detail - ${selectedOrder.code}` : "DO Detail"}
+                    </p>
+                  </div>
+                  <div className="max-h-[44vh] overflow-auto">
+                    <Table className="text-xs min-w-[780px]">
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="text-left text-[11px] font-semibold tracking-wide py-2">DO Code</TableHead>
+                          <TableHead className="text-center text-[11px] font-semibold tracking-wide py-2">Slot</TableHead>
+                          <TableHead className="text-left text-[11px] font-semibold tracking-wide py-2">Product</TableHead>
+                          <TableHead className="text-left text-[11px] font-semibold tracking-wide py-2">Code</TableHead>
+                          <TableHead className="text-right text-[11px] font-semibold tracking-wide py-2">Qty</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedOrderLines.map((item) => (
+                          <TableRow key={`${item.doCode}-${item.slot}-${item.productCode}`} className="h-9">
+                            <TableCell className="py-1.5 font-mono font-bold tracking-wider">
+                              {item.doCode}
+                            </TableCell>
+                            <TableCell className="text-center py-1.5">
+                              <span className="font-mono font-bold tracking-wider">{item.slot}</span>
+                            </TableCell>
+                            <TableCell className="py-1.5 font-medium">{item.productName}</TableCell>
+                            <TableCell className="py-1.5 text-muted-foreground">{item.productCode}</TableCell>
+                            <TableCell className="py-1.5 text-right font-semibold tabular-nums">{item.qty}</TableCell>
+                          </TableRow>
+                        ))}
+                        {selectedOrderLines.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                              Click View pada DO untuk tengok item list.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {selectedOrder && (
+                    <div className="border-t bg-muted/20 px-4 py-2 text-xs md:px-5">
+                      <span className="font-semibold tabular-nums">Total Qty: {selectedOrderTotalQty}</span>
+                    </div>
                   )}
-                </button>
-              ))}
-              {filteredOrders.length === 0 && (
-                <p className="text-xs text-muted-foreground">No new DO found for this machine.</p>
-              )}
+                </div>
+              </div>
             </div>
           </div>
-
-          <div className="max-h-[60vh] overflow-auto rounded-lg border">
-            <Table className="text-xs min-w-[780px]">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-left text-[11px] font-semibold tracking-wide py-2">DO Code</TableHead>
-                  <TableHead className="text-center text-[11px] font-semibold tracking-wide py-2">Slot</TableHead>
-                  <TableHead className="text-left text-[11px] font-semibold tracking-wide py-2">Product</TableHead>
-                  <TableHead className="text-left text-[11px] font-semibold tracking-wide py-2">Code</TableHead>
-                  <TableHead className="text-right text-[11px] font-semibold tracking-wide py-2">Qty</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {selectedOrderLines.map((item) => (
-                  <TableRow key={`${item.doCode}-${item.slot}-${item.productCode}`} className="h-9">
-                    <TableCell className="py-1.5 font-mono font-bold tracking-wider">
-                      {item.doCode}
-                    </TableCell>
-                    <TableCell className="text-center py-1.5">
-                      <span className="font-mono font-bold tracking-wider">{item.slot}</span>
-                    </TableCell>
-                    <TableCell className="py-1.5 font-medium">{item.productName}</TableCell>
-                    <TableCell className="py-1.5 text-muted-foreground">{item.productCode}</TableCell>
-                    <TableCell className="py-1.5 text-right font-semibold tabular-nums">{item.qty}</TableCell>
-                  </TableRow>
-                ))}
-                {selectedOrderLines.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
-                      Pilih satu DO code untuk tengok item list.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {selectedOrder && (
-            <div className="flex items-center justify-between rounded-lg border bg-muted/20 px-3 py-2 text-xs">
-              <span className="text-muted-foreground">
-                Showing DO code: <span className="font-mono font-semibold text-foreground">{selectedOrder.code}</span>
-              </span>
-              <span className="font-semibold tabular-nums">Total Qty: {selectedOrderTotalQty}</span>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
     </div>
